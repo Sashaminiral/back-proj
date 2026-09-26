@@ -1,0 +1,565 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "name": "Workshop Booking System",
+    "description": "Коллекция для проверки REST API системы бронирования мастер-классов.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "user_token", "value": "" },
+    { "key": "admin_token", "value": "" },
+    { "key": "workshop_id", "value": "" },
+    { "key": "booking_id", "value": "" },
+    { "key": "past_workshop_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 201', function () {",
+                  "  pm.expect(pm.response.code).to.eql(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Токен выдан, пароль не возвращается', function () {",
+                  "  pm.expect(json.token).to.be.a('string').and.to.have.lengthOf.at.least(8);",
+                  "  pm.expect(json.user).to.not.have.property('password');",
+                  "  pm.expect(json.user).to.not.have.property('password_hash');",
+                  "});",
+                  "if (json.token) {",
+                  "  pm.collectionVariables.set('user_token', json.token);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"student_{{$timestamp}}\",\n  \"email\": \"student{{$timestamp}}@example.com\",\n  \"password\": \"StudentPass123\",\n  \"first_name\": \"Иван\",\n  \"last_name\": \"Студент\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/register/"
+          }
+        },
+        {
+          "name": "Login user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Токен выдан', function () {",
+                  "  pm.expect(json.token).to.be.a('string');",
+                  "});",
+                  "pm.collectionVariables.set('user_token', json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user\",\n  \"password\": \"UserPass123\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/login/"
+          }
+        },
+        {
+          "name": "Login admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('Роль admin', function () {",
+                  "  pm.expect(json.user.role).to.eql('admin');",
+                  "});",
+                  "pm.collectionVariables.set('admin_token', json.token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"AdminPass123\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/login/"
+          }
+        },
+        {
+          "name": "Me",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('Нет пароля в ответе', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.not.have.property('password');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Token {{user_token}}" }
+            ],
+            "url": "{{base_url}}/api/auth/me/"
+          }
+        },
+        {
+          "name": "Login invalid",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 400', function () {",
+                  "  pm.expect(pm.response.code).to.eql(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"user\",\n  \"password\": \"wrong\"\n}"
+            },
+            "url": "{{base_url}}/api/auth/login/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workshops",
+      "item": [
+        {
+          "name": "List workshops (public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('JSON со списком результатов', function () {",
+                  "  pm.expect(json).to.have.property('results');",
+                  "  pm.expect(json.results).to.be.an('array');",
+                  "});",
+                  "const future = json.results.find(item => item.title !== 'Прошедший мастер-класс');",
+                  "const past = json.results.find(item => item.title === 'Прошедший мастер-класс');",
+                  "if (future) { pm.collectionVariables.set('workshop_id', String(future.id)); }",
+                  "if (past) { pm.collectionVariables.set('past_workshop_id', String(past.id)); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/workshops/"
+          }
+        },
+        {
+          "name": "Retrieve workshop (public)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('Есть поля вместимости', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json).to.have.property('capacity');",
+                  "  pm.expect(json).to.have.property('remaining_seats');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/workshops/{{workshop_id}}/"
+          }
+        },
+        {
+          "name": "Create workshop as user (forbidden)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 403', function () {",
+                  "  pm.expect(pm.response.code).to.eql(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Token {{user_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Не должен создаться\",\n  \"description\": \"Пользователь без роли admin\",\n  \"starts_at\": \"2030-01-01T12:00:00Z\",\n  \"duration_minutes\": 60,\n  \"capacity\": 5,\n  \"location\": \"Студия\"\n}"
+            },
+            "url": "{{base_url}}/api/workshops/"
+          }
+        },
+        {
+          "name": "Create workshop as admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 201', function () {",
+                  "  pm.expect(pm.response.code).to.eql(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('workshop_id', String(json.id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Token {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Каллиграфия\",\n  \"description\": \"Основы кириллической каллиграфии\",\n  \"starts_at\": \"2030-06-15T10:00:00Z\",\n  \"duration_minutes\": 90,\n  \"capacity\": 2,\n  \"location\": \"Арт-пространство\"\n}"
+            },
+            "url": "{{base_url}}/api/workshops/"
+          }
+        },
+        {
+          "name": "Update workshop as admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('Вместимость обновлена', function () {",
+                  "  pm.expect(pm.response.json().capacity).to.eql(3);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Token {{admin_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Каллиграфия\",\n  \"description\": \"Основы кириллической каллиграфии\",\n  \"starts_at\": \"2030-06-15T10:00:00Z\",\n  \"duration_minutes\": 90,\n  \"capacity\": 3,\n  \"location\": \"Арт-пространство\"\n}"
+            },
+            "url": "{{base_url}}/api/workshops/{{workshop_id}}/"
+          }
+        },
+        {
+          "name": "Delete workshop as user (forbidden)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 403', function () {",
+                  "  pm.expect(pm.response.code).to.eql(403);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Token {{user_token}}" }
+            ],
+            "url": "{{base_url}}/api/workshops/{{workshop_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings",
+      "item": [
+        {
+          "name": "Create booking unauthorized",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 401', function () {",
+                  "  pm.expect(pm.response.code).to.eql(401);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workshop_id\": {{workshop_id}}\n}"
+            },
+            "url": "{{base_url}}/api/bookings/"
+          }
+        },
+        {
+          "name": "Create booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 201', function () {",
+                  "  pm.expect(pm.response.code).to.eql(201);",
+                  "});",
+                  "const json = pm.response.json();",
+                  "pm.test('В ответе есть данные мастер-класса', function () {",
+                  "  pm.expect(json.workshop).to.be.an('object');",
+                  "  pm.expect(json.workshop).to.have.property('title');",
+                  "});",
+                  "pm.collectionVariables.set('booking_id', String(json.id));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Token {{user_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workshop_id\": {{workshop_id}}\n}"
+            },
+            "url": "{{base_url}}/api/bookings/"
+          }
+        },
+        {
+          "name": "Create duplicate booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 400 при дубле', function () {",
+                  "  pm.expect(pm.response.code).to.eql(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Token {{user_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workshop_id\": {{workshop_id}}\n}"
+            },
+            "url": "{{base_url}}/api/bookings/"
+          }
+        },
+        {
+          "name": "Create booking on past workshop",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 400 для прошедшей даты', function () {",
+                  "  pm.expect(pm.response.code).to.eql(400);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Token {{user_token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workshop_id\": {{past_workshop_id}}\n}"
+            },
+            "url": "{{base_url}}/api/bookings/"
+          }
+        },
+        {
+          "name": "List my bookings",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});",
+                  "pm.test('Вложенный workshop в каждой брони', function () {",
+                  "  const json = pm.response.json();",
+                  "  pm.expect(json.results.length).to.be.at.least(1);",
+                  "  json.results.forEach(function (item) {",
+                  "    pm.expect(item.workshop).to.have.property('title');",
+                  "    pm.expect(item).to.not.have.property('password');",
+                  "  });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Token {{user_token}}" }
+            ],
+            "url": "{{base_url}}/api/bookings/"
+          }
+        },
+        {
+          "name": "Retrieve booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 200', function () {",
+                  "  pm.expect(pm.response.code).to.eql(200);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Token {{user_token}}" }
+            ],
+            "url": "{{base_url}}/api/bookings/{{booking_id}}/"
+          }
+        },
+        {
+          "name": "Cancel booking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 204', function () {",
+                  "  pm.expect(pm.response.code).to.eql(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Token {{user_token}}" }
+            ],
+            "url": "{{base_url}}/api/bookings/{{booking_id}}/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Workshops cleanup",
+      "item": [
+        {
+          "name": "Delete workshop as admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Статус 204', function () {",
+                  "  pm.expect(pm.response.code).to.eql(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Token {{admin_token}}" }
+            ],
+            "url": "{{base_url}}/api/workshops/{{workshop_id}}/"
+          }
+        }
+      ]
+    }
+  ]
+}
